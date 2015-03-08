@@ -2,8 +2,8 @@ DPDK-Replay
 ===========
 
 ## 1. Description of the software
-This tool can replay a pcap capture at wire speed on several 10Gbps links.
-It retreives traffic from a file in pcap format and send it at wire speed on the network interface()s.
+This tool can replay a pcap capture at wire speed on several 10Gbps links by means of DPDK APIs.
+It retreives the traffic from a file in pcap format and send it on the network interface(s).
 It can achieve high speed when the disks are fast.
 
 * For information about DPDK please read: http://dpdk.org/doc
