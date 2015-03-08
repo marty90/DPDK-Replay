@@ -41,7 +41,7 @@ For documentation and details see http://dpdk.org/doc/guides/linux_gsg/index.htm
 Get it from the git repository. Remind to set `RTE_SDK` and `RTE_TARGET`.
 ```bash
 	git clone https://github.com/marty90/DPDK-Replay
-	cd DPDK-Dump
+	cd DPDK-Replay
 	make
 	cd ..
 ```
