@@ -96,7 +96,7 @@ The are few parameters:
 	./build/dpdk-dump -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size]
 ```
 The parameters have this meaning:
-* `COREMASK`: The cores where to bind the program. **It needs 2 cores**
+* `COREMASK`: The core where to bind the program. **It needs 1 core**
 * `NUM`: Number of memory channels to use. It's 2 or 4.
 * `PCI_ADDR`: The port(s) where to send. If not present, it sends the same traffic to every port.
 * `file`: input file in pcap format
