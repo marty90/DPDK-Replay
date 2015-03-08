@@ -1,0 +1,229 @@
+#include "main.h"
+
+/* If you define DEBUG, stats will be printed */
+#define DEBUG
+
+/* Constants of the system */
+#define MEMPOOL_NAME "cluster_mem_pool"				// Name of the NICs' mem_pool, useless comment....
+#define MEMPOOL_ELEM_NB (8388608/2-1) 				// Must be greater than RX_QUEUE_SZ * RX_QUEUE_NB * nb_sys_ports; Should also be (2^n - 1). 
+#define MEMPOOL_ELEM_SZ 2048  					// Power of two greater than 1500
+#define MEMPOOL_CACHE_SZ 0  					// MUST BE 0 WITH SCHED_DEADLINE, otherwise the driver wil crash !!
+
+#define RX_QUEUE_SZ 4096			// The size of rx queue. Max is 4096 and is the one you'll have best performances with. Use lower if you want to use Burst Bulk Alloc.
+#define TX_QUEUE_SZ 256			// Unused, you don't tx packets
+#define PKT_BURST_SZ 4096		// The max size of batch of packets retreived when invoking the receive function. Use the RX_QUEUE_SZ for high speed
+
+#define STATS_PRINT_RATE (3500000000) 	// You print stats each STATS_PRINT_RATE clock cycles. On this machine is 3700000000, since clock is 3.7 Ghz. Use 140s for 5 min traces, 85s at 10Gbps
+#define STDEV_THRESH (3500000)		// define the threshold for calculating the stdev. Samples higher than STDEV_THRESH will be ignored. Value expressed in CPU clocks.
+#define STAT_FILE "tstat-stats/stats00.txt"		// define the file statistics are put in. Every instance has got statsX.txt file
+
+/* Global vars */
+char * file_name == NULL;
+pcap_dumper_t * pcap_file;
+pcap_t *pd;
+int nb_sys_ports;
+static struct rte_mempool * pktmbuf_pool;
+
+/* Main function */
+int main(int argc, char **argv)
+{
+	int ret;
+	int i;
+	char name [50], nb_str [10];
+	char * libtstat_conf_file = strdup(TSTAT_CONF_FILE);
+
+	/* Create handler for SIGINT for CTRL + C closing */
+	signal(SIGINT, sig_handler);
+
+	/* Initialize DPDK enviroment with args, then shift argc and argv to get application parameters */
+	ret = rte_eal_init(argc, argv);
+	if (ret < 0) FATAL_ERROR("Cannot init EAL\n");
+	argc -= ret;
+	argv += ret;
+
+	/* Check if this application can use one core*/
+	ret = rte_lcore_count ();
+	if (ret != 1) FATAL_ERROR("This application needs exactly one (1) cores.");
+	current_core = rte_lcore_id ();
+
+	/* Parse arguments (must retrieve the total number of cores, which core I am, and time engine to use) */
+	parse_args(argc, argv);
+	if (ret < 0) FATAL_ERROR("Wrong arguments\n");
+
+	/* Probe PCI bus for ethernet devices, mandatory only in DPDK < 1.8.0 */
+	#if RTE_VER_MAJOR == 1 && RTE_VER_MINOR < 8
+		ret = rte_eal_pci_probe();
+		if (ret < 0) FATAL_ERROR("Cannot probe PCI\n");
+	#endif
+
+	/* Get number of ethernet devices */
+	nb_sys_ports = rte_eth_dev_count();
+	if (nb_sys_ports <= 0) FATAL_ERROR("Cannot find ETH devices\n");
+	
+	/* Create a mempool with per-core cache, initializing every element for be used as mbuf, and allocating on the current NUMA node */
+	pktmbuf_pool = rte_mempool_create(MEMPOOL_NAME, MEMPOOL_ELEM_NB, MEMPOOL_ELEM_SZ, MEMPOOL_CACHE_SZ, sizeof(struct rte_pktmbuf_pool_private), rte_pktmbuf_pool_init, NULL, rte_pktmbuf_init, NULL,rte_socket_id(), 0);
+	if (pktmbuf_pool == NULL) FATAL_ERROR("Cannot create cluster_mem_pool. Errno: %d [ENOMEM: %d, ENOSPC: %d, E_RTE_NO_TAILQ: %d, E_RTE_NO_CONFIG: %d, E_RTE_SECONDARY: %d, EINVAL: %d, EEXIST: %d]\n", rte_errno, ENOMEM, ENOSPC, E_RTE_NO_TAILQ, E_RTE_NO_CONFIG, E_RTE_SECONDARY, EINVAL, EEXIST  );
+	
+	/* Operations needed for each ethernet device */			
+	for(i=0; i < nb_sys_ports; i++)
+		init_port(i);
+
+	/* ... and then loop in consumer */
+	main_loop_consumer ( NULL );	
+
+	return 0;
+}
+
+
+
+/* Loop function, batch timing implemented */
+static int main_loop_producer(__attribute__((unused)) void * arg){
+	struct rte_mbuf * pkts_burst[PKT_BURST_SZ];
+	struct timeval t_pack;
+	struct rte_mbuf * m;
+	int i;
+
+	pd = pcap_open_dead(DLT_RAW, 65535 );
+	pcap_file = pcap_dump_open(pd, file_name);
+
+
+	/* Infinite loop */
+	for (;;) {
+
+		/* Read a burst for current port at queue 'nb_istance'*/
+		nb_rx = rte_eth_rx_burst(read_from_port, nb_istance, pkts_burst, PKT_BURST_SZ);
+
+		/* For each received packet. */
+		for (i = 0; likely( i < nb_rx ) ; i++) {
+
+			/* Retreive packet from burst, increase the counter */
+			m = pkts_burst[i];
+			nb_packets++;
+
+			ret = gettimeofday(&t_pack, NULL);
+			if (ret != 0) FATAL_ERROR("Error: gettimeofday failed. Quitting...\n");
+			
+			pcap_file
+
+			/* Release buffer where the processed packet was stored */
+			rte_pktmbuf_free((struct rte_mbuf *)m);
+
+		}
+
+		/* Increasing reading port number in Round-Robin logic */
+		read_from_port = (read_from_port + 1) % nb_sys_ports;
+
+	}
+	return 0;
+}
+
+
+
+/* Signal handling function */
+static void sig_handler(int signo)
+{
+	/* Catch just SIGINT */
+	if (signo == SIGINT){
+
+		/* The master core prints the per port stats  */
+		int i;
+		struct rte_eth_stats stat;
+
+		/* The master core print per port and per queue stats */
+		for (i = 0; i < nb_sys_ports; i++){	
+			rte_eth_stats_get(i, &stat);
+			printf("\nPORT: %d Rx: %ld Drp: %ld Tot: %ld Perc: %.3f%%", i, stat.ipackets, stat.imissed, stat.ipackets+stat.imissed, (float)stat.imissed/(stat.ipackets+stat.imissed)*100 );
+		}	
+		printf("\n");
+
+		pcap_close(pd);
+		pcap_dump_close(pcap_file);
+		exit(0);	
+	}
+}
+
+/* Init each port with the configuration contained in the structs. Every interface has nb_sys_cores queues */
+static void init_port(int i) {
+
+		int j;
+		int ret;
+		uint8_t rss_key [40];
+		struct rte_eth_link link;
+		struct rte_eth_dev_info dev_info;
+		struct rte_eth_rss_conf rss_conf;
+		struct rte_eth_fdir fdir_conf;
+
+		/* Retreiving and printing device infos */
+		rte_eth_dev_info_get(i, &dev_info);
+		printf("Name:%s\n\tDriver name: %s\n\tMax rx queues: %d\n\tMax tx queues: %d\n", dev_info.pci_dev->driver->name,dev_info.driver_name, dev_info.max_rx_queues, dev_info.max_tx_queues);
+		printf("\tPCI Adress: %04d:%02d:%02x:%01d\n", dev_info.pci_dev->addr.domain, dev_info.pci_dev->addr.bus, dev_info.pci_dev->addr.devid, dev_info.pci_dev->addr.function);
+		if (dev_info.max_rx_queues < nb_sys_cores) FATAL_ERROR("Every interface must have a queue on each core, but this is not supported. Quitting...\n");
+
+		/* Configure device with '1' rx queues and 1 tx queue */
+		ret = rte_eth_dev_configure(i, 1, 1, &port_conf);
+		if (ret < 0) rte_panic("Error configuring the port\n");
+
+		/* For each RX queue in each NIC */
+		for (j = 0; j < nb_sys_cores; j++){
+			/* Configure rx queue j of current device on current NUMA socket. It takes elements from the mempool */
+			ret = rte_eth_rx_queue_setup(i, j, RX_QUEUE_SZ, rte_socket_id(), &rx_conf, pktmbuf_pool);
+			if (ret < 0) FATAL_ERROR("Error configuring receiving queue\n");
+			/* Configure mapping [queue] -> [element in stats array] */
+			ret = rte_eth_dev_set_rx_queue_stats_mapping 	(i, j, j );
+			if (ret < 0) FATAL_ERROR("Error configuring receiving queue stats\n");
+ 	
+		}
+
+
+		/* Configure tx queue of current device on current NUMA socket. Mandatory configuration even if you want only rx packet */
+		ret = rte_eth_tx_queue_setup(i, 0, TX_QUEUE_SZ, rte_socket_id(), &tx_conf);
+		if (ret < 0) FATAL_ERROR("Error configuring transmitting queue. Errno: %d (%d bad arg, %d no mem)\n", -ret, EINVAL ,ENOMEM);
+
+		/* Start device */		
+		ret = rte_eth_dev_start(i);
+		if (ret < 0) FATAL_ERROR("Cannot start port\n");
+
+		/* Enable receipt in promiscuous mode for an Ethernet device */
+		rte_eth_promiscuous_enable(i);
+
+		/* Print link status */
+		rte_eth_link_get_nowait(i, &link);
+		if (link.link_status) 	printf("\tPort %d Link Up - speed %u Mbps - %s\n", (uint8_t)i, (unsigned)link.link_speed,(link.link_duplex == ETH_LINK_FULL_DUPLEX) ?("full-duplex") : ("half-duplex\n"));
+		else			printf("\tPort %d Link Down\n",(uint8_t)i);
+
+		/* Print RSS support, not reliable because a NIC could support rss configuration just in rte_eth_dev_configure whithout supporting rte_eth_dev_rss_hash_conf_get*/
+		rss_conf.rss_key = rss_key;
+		ret = rte_eth_dev_rss_hash_conf_get (i,&rss_conf);
+		if (ret == 0) printf("\tDevice supports RSS\n"); else printf("\tDevice DOES NOT support RSS\n");
+		
+		/* Print Flow director support */
+		ret = rte_eth_dev_fdir_get_infos (i, &fdir_conf);
+		if (ret == 0) printf("\tDevice supports Flow Director\n"); else printf("\tDevice DOES NOT support Flow Director\n"); 
+
+	
+}
+
+static int parse_args(int argc, char **argv)
+{
+	int option;
+	
+
+	/* Retrive arguments */
+	while ((option = getopt(argc, argv,"w:")) != -1) {
+        	switch (option) {
+             		case 'w' : file_name = strdup(optarg); 
+                 		break;
+             		default: return -1; 
+		}
+   	}
+
+	/* Returning bad value in case of wrong arguments */
+	if(file_name == NULL)
+		return -1;
+
+	return 0;
+
+}
+
+
+
