@@ -94,9 +94,11 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 	if (file == NULL){	
 		printf("Unable to open file: %s\n", file_name);
 		exit(1);			
-	}	
+	}
+	/* Prepare file pointer skiping pcap hdr, and setting large buffer */	
 	fseek(file, sizeof(struct pcap_hdr_t), SEEK_SET);
-	setvbuf(file, NULL, _IOFBF, 1048576);
+	ret = setvbuf(file, NULL, _IOFBF, 33554432);
+	if (ret != 0) FATAL_ERROR("Cannot set the size of the file pointer to the trace...\n");
 
 	/* Prepare variables to rate setting if needed */
 	if(rate != 0){
@@ -124,7 +126,6 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		if (unlikely(do_shutdown))
 			break;
 
-
 		/* Read packet from trace */
 		ret = fread((void*)&hdr, sizeof (hdr), 1, file);
 		if(unlikely(ret <= 0)) break;
@@ -149,10 +150,12 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 			//	ip_h->dst_addr+=sum_value*256*256*256;
 			//}
 
+			/* On the first port, send original packet buffer */
 			if (unlikely(i==0)){
 				while ( rte_eth_tx_burst (i, 0, &m , 1) != 1)
 				if (unlikely(do_shutdown)) break;
 			}
+			/* On the other ports, send indirect buffers pointing to the original one */
 			else {
 				m_copy = rte_pktmbuf_clone( m,pktmbuf_pool) ;
 				/* Loop untill it is not sent */
