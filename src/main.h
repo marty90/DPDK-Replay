@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <sys/queue.h>
 #include <sys/syscall.h>
@@ -117,4 +120,22 @@ static const struct rte_eth_txconf tx_conf = {
 	.txq_flags = ETH_TXQ_FLAGS_NOOFFLOADS | ETH_TXQ_FLAGS_NOMULTSEGS,  /* IMPORTANT for vmxnet3, otherwise it won't work */
 	.tx_rs_thresh = 0,      /* Use PMD default values */
 };
+
+
+struct pcap_hdr_t {
+        uint32_t magic_number;   /* magic number */
+        uint16_t version_major;  /* major version number */
+        uint16_t version_minor;  /* minor version number */
+        int32_t  thiszone;       /* GMT to local correction */
+        uint32_t sigfigs;        /* accuracy of timestamps */
+        uint32_t snaplen;        /* max length of captured packets, in octets */
+        uint32_t network;        /* data link type */
+} ;
+
+struct pcaprec_hdr_t {
+   uint32_t ts_sec;         /* timestamp seconds */
+   uint32_t ts_usec;        /* timestamp microseconds */
+   uint32_t incl_len;       /* number of octets of packet saved in file */
+   uint32_t orig_len;       /* actual length of packet */
+} ;
 
