@@ -13,6 +13,7 @@
 char * file_name = NULL;
 pcap_t *pt;
 uint64_t buffer_size = 1048576;
+uint64_t max_pkt = 0;
 int do_shutdown = 0;
 int sum_value = 0;
 double rate = 0;
@@ -170,6 +171,11 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		num_pkt_good_sent++;
 		num_bytes_good_sent += h->caplen + 24; /* 8 Preamble + 4 CRC + 12 IFG*/
 
+		if (max_pkt != 0 && num_pkt_good_sent >= max_pkt){
+			printf("Sent %ld packets...\n", max_pkt);
+			sig_handler(SIGINT);
+		}
+
 	}
 
 	sig_handler(SIGINT);
@@ -307,7 +313,7 @@ static int parse_args(int argc, char **argv)
 	
 
 	/* Retrive arguments */
-	while ((option = getopt(argc, argv,"f:s:r:B:")) != -1) {
+	while ((option = getopt(argc, argv,"f:s:r:B:C:")) != -1) {
         	switch (option) {
              		case 'f' : file_name = strdup(optarg); /* File name, mandatory */
                  		break;
@@ -316,6 +322,8 @@ static int parse_args(int argc, char **argv)
 			case 'B': buffer_size = atoi (optarg); /* Buffer size in packets. Must be a power of two . Default is 1048576 */
 				break;
 			case 'r': rate = atof (optarg); /* Rate in Gbps */
+				break;
+			case 'C': max_pkt = atof (optarg); /* Max packets before quitting */
 				break;
              		default: return -1; 
 		}
