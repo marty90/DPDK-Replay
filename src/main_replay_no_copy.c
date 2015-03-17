@@ -9,12 +9,13 @@
 #define RX_QUEUE_SZ 256			// The size of rx queue. Max is 4096 and is the one you'll have best performances with. Use lower if you want to use Burst Bulk Alloc.
 #define TX_QUEUE_SZ 4096			// Unused, you don't tx packets
 
+
 /* Global vars */
 char * file_name = NULL;
 FILE * file;
 uint64_t buffer_size = 1048576;
 int do_shutdown = 0;
-int sum_value = 0;
+int times = 1;
 double rate = 0;
 int nb_sys_ports;
 static struct rte_mempool * pktmbuf_pool;
@@ -140,15 +141,8 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		/* Compile the buffer length */
 		m->data_len = m->pkt_len = hdr.incl_len;
 	
-		/* For each received packet. */
-		for (i = 0; likely( i < nb_sys_ports ) ; i++) {
-
-			/* Add a number to ip address if needed */
-			//ip_h = (struct ipv4_hdr*)((char*)pkt + sizeof(struct  ether_hdr));
-			//if (sum_value > 0){
-			//	ip_h->src_addr+=sum_value*256*256*256;
-			//	ip_h->dst_addr+=sum_value*256*256*256;
-			//}
+		/* For each packet to send */
+		for (i = 0; likely( i < nb_sys_ports*times ) ; i++) {
 
 			/* On the first port, send original packet buffer */
 			if (unlikely(i==0)){
@@ -159,7 +153,7 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 			else {
 				m_copy = rte_pktmbuf_clone( m,pktmbuf_pool) ;
 				/* Loop untill it is not sent */
-				while ( rte_eth_tx_burst (i, 0, &m_copy , 1) != 1)
+				while ( rte_eth_tx_burst (i/times, 0, &m_copy , 1) != 1)
 					if (unlikely(do_shutdown)) break;
 			}
 		}
@@ -181,8 +175,8 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		}
 
 		/* Update stats */
-		num_pkt_good_sent++;
-		num_bytes_good_sent += hdr.incl_len + 24; /* 8 Preamble + 4 CRC + 12 IFG*/
+		num_pkt_good_sent += times;
+		num_bytes_good_sent += (hdr.incl_len + 24) * times; /* 8 Preamble + 4 CRC + 12 IFG*/
 
 	}
 
@@ -320,11 +314,11 @@ static int parse_args(int argc, char **argv)
 	
 
 	/* Retrive arguments */
-	while ((option = getopt(argc, argv,"f:s:r:B:")) != -1) {
+	while ((option = getopt(argc, argv,"f:t:r:B:")) != -1) {
         	switch (option) {
              		case 'f' : file_name = strdup(optarg); /* File name, mandatory */
                  		break;
-			case 's': sum_value = atol (optarg); /* Sum this value each time duplicate a packet */
+			case 't': times = atoi (optarg); /* Times to send packet on each port. Default is 1 */
 				break;
 			case 'B': buffer_size = atoi (optarg); /* Buffer size in packets. Must be a power of two . Default is 1048576 */
 				break;
