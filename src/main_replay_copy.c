@@ -12,6 +12,8 @@
 /* Global vars */
 char * file_name = NULL;
 pcap_t *pt;
+int times = 1;
+int64_t time_out = 0;
 uint64_t buffer_size = 1048576;
 uint64_t max_pkt = 0;
 int do_shutdown = 0;
@@ -131,7 +133,7 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		if(ret <= 0) break;
 	
 		/* For each received packet. */
-		for (i = 0; likely( i < nb_sys_ports ) ; i++) {
+		for (i = 0; likely( i < nb_sys_ports * times ) ; i++) {
 
 			/* Add a number to ip address if needed */
 			ip_h = (struct ipv4_hdr*)((char*)pkt + sizeof(struct  ether_hdr));
@@ -148,19 +150,24 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 			rte_memcpy ( (char*) m->buf_addr + m->data_off, pkt, h->caplen);
 
 			/* Loop untill it is not sent */
-			while ( rte_eth_tx_burst (i, 0, &m , 1) != 1)
+			while ( rte_eth_tx_burst (i / times, 0, &m , 1) != 1)
 				if (unlikely(do_shutdown)) break;
 		}
 
 		/* Rate set */
 		if(rate > 0) {
 			/* Adjust the rate every 100 packets sent */
-			if (ix++%100 ==0){
+			if (ix++%1 ==0){
 				/* Calculate the actual rate */
-				gettimeofday(&now, NULL);
+				ret = gettimeofday(&now, NULL);
+				if (ret != 0) FATAL_ERROR("Error: gettimeofday failed. Quitting...\n");
+
 				deltaMillisec = (double)(now.tv_sec - start_time.tv_sec ) * 1000 + (double)(now.tv_usec - start_time.tv_usec ) / 1000 ;
 				real_rate = (double)(num_bytes_good_sent * 1000)/deltaMillisec * 8/(1000*1000*1000);
 				mult = mult + (real_rate - rate); // CONTROL LAW;
+
+				/* Avoid negative numbers. Avoid problems when the NICs are stuck for a while */
+				if (mult < 0) mult = 0;
 			}
 			/* Wait to adjust the rate*/
 			while(( rte_get_tsc_cycles() - tick_start) < (num_bytes_good_sent * mult / rate )) 
@@ -168,9 +175,22 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 		}
 
 		/* Update stats */
-		num_pkt_good_sent++;
-		num_bytes_good_sent += h->caplen + 24; /* 8 Preamble + 4 CRC + 12 IFG*/
+		num_pkt_good_sent+= times;
+		num_bytes_good_sent += (h->caplen + 24) * times; /* 8 Preamble + 4 CRC + 12 IFG*/
 
+		/* Check if time_out elapsed*/
+		if (time_out != 0){
+			ret = gettimeofday(&now, NULL);
+			if (ret != 0) FATAL_ERROR("Error: gettimeofday failed. Quitting...\n");
+
+			if (now.tv_sec-start_time.tv_sec >= time_out ){
+				printf("Timeout of %ld seconds elapsed...\n", time_out);
+				sig_handler(SIGINT);
+			}
+				
+		}
+
+		/* Check if max_pkt have been sent */
 		if (max_pkt != 0 && num_pkt_good_sent >= max_pkt){
 			printf("Sent %ld packets...\n", max_pkt);
 			sig_handler(SIGINT);
@@ -313,7 +333,7 @@ static int parse_args(int argc, char **argv)
 	
 
 	/* Retrive arguments */
-	while ((option = getopt(argc, argv,"f:s:r:B:C:")) != -1) {
+	while ((option = getopt(argc, argv,"f:s:r:B:C:t:T:")) != -1) {
         	switch (option) {
              		case 'f' : file_name = strdup(optarg); /* File name, mandatory */
                  		break;
@@ -322,6 +342,10 @@ static int parse_args(int argc, char **argv)
 			case 'B': buffer_size = atoi (optarg); /* Buffer size in packets. Must be a power of two . Default is 1048576 */
 				break;
 			case 'r': rate = atof (optarg); /* Rate in Gbps */
+				break;
+			case 't': times = atoi (optarg); /* Times to send a packet */
+				break;
+			case 'T': time_out = atol (optarg); /* Timeout of the replay in seconds. Quit after it is reached */
 				break;
 			case 'C': max_pkt = atof (optarg); /* Max packets before quitting */
 				break;

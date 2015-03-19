@@ -168,6 +168,9 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 				deltaMillisec = (double)(now.tv_sec - start_time.tv_sec ) * 1000 + (double)(now.tv_usec - start_time.tv_usec ) / 1000 ;
 				real_rate = (double)(num_bytes_good_sent * 1000)/deltaMillisec * 8/(1000*1000*1000);
 				mult = mult + (real_rate - rate); // CONTROL LAW;
+
+				/* Avoid negative numbers. Avoid problems when the NICs are stuck for a while */
+				if (mult < 0) mult = 0;
 			}
 			/* Wait to adjust the rate*/
 			while(( rte_get_tsc_cycles() - tick_start) < (num_bytes_good_sent * mult / rate )) 
