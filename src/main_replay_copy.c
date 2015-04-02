@@ -339,7 +339,7 @@ static int parse_args(int argc, char **argv)
                  		break;
 			case 's': sum_value = atol (optarg); /* Sum this value each time duplicate a packet */
 				break;
-			case 'B': buffer_size = atoi (optarg); /* Buffer size in packets. Must be a power of two . Default is 1048576 */
+			case 'B': buffer_size = atol (optarg); /* Buffer size in packets. Must be a power of two . Default is 1048576 */
 				break;
 			case 'r': rate = atof (optarg); /* Rate in Gbps */
 				break;
