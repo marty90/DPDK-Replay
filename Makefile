@@ -14,7 +14,7 @@ LDLIBS = -lpcap -lpthread -lm
 APP = dpdk-replay
 
 # all source are stored in SRCS-y
-SRCS-y := src/main_replay_no_copy.c 
+SRCS-y := src/main_replay_copy.c 
 
 CFLAGS += -O3
 #CFLAGS += -g
