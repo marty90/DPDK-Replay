@@ -117,7 +117,6 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 
 	/* Start stats */
    	alarm(1);
-
 	for (i=0;i<nb_sys_ports; i++)
 		rte_eth_stats_reset ( i );
 
