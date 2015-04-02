@@ -93,7 +93,7 @@ To start DPDK-Replay just execute `./build/dpdk-replay`. If not specified it use
 Root priviledges are needed.
 The are few parameters:
 ```bash
-	./build/dpdk-dump -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size] [-C max_pkt]
+	./build/dpdk-dump -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size] [-C max_pkt] [-t times] [-T timeout]
 ```
 The parameters have this meaning:
 * `COREMASK`: The core where to bind the program. **It needs 1 core**
@@ -103,7 +103,9 @@ The parameters have this meaning:
 * `sum`: when using multiple interfaces, sum this number to IP addresses each time a packet is sent on the interface.
 * `rate`: rate to send on the wire. If not specified it sends at wire speed.
 * `buffer_size`: Internal buffer size. Default is 1 Milion packets.
-* `max_pkt`: quit after sending max_pkt packets on every interface. 
+* `max_pkt`: quit after sending max_pkt packets on every interface.
+* `times`: how many times to send a packet on each interface. Default is 1. 
+* `timeout`: timeout of the replay in seconds. Quit after it is reached. 
 
 The parameters before `--` are DPDK enviroment related. See its guide for further explaination.
 
