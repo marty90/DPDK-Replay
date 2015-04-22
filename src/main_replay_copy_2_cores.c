@@ -117,15 +117,17 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 	/* Infinite loop */
 	for (;;) {
 
-		/* If the system is quitting, break the cycle */
-		if (do_shutdown)
-			break;
-
 		/* Read packet from trace */
 		time = rte_get_tsc_cycles();
 		ret = pcap_next_ex(pt, &h, (const u_char**)&pkt);
 		end_time = rte_get_tsc_cycles();
-		if(ret <= 0) break;
+		if(ret <= 0) {
+			if (ret==-2)
+				printf("All the file replayed...\n");
+			if (ret==-1)
+				printf("Error in pcap: %s\n", pcap_geterr(pt));
+			break;
+		}
 
 		/* Alloc the buffer */
 
@@ -139,7 +141,7 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 
 
 		/* Not fill the buffer */
-		//while (rte_mempool_free_count (pktmbuf_pool) > buffer_size*BUFFER_RATIO ) {}
+		while (rte_mempool_free_count (pktmbuf_pool) > buffer_size*BUFFER_RATIO ) {}
 
 		/* Compile the buffer */
 		m->data_len = m->pkt_len = h->caplen;
@@ -150,7 +152,7 @@ static int main_loop_producer(__attribute__((unused)) void * arg){
 
 	}
 
-
+	sig_handler (SIGINT);
 }
 
 /* Loop function, batch timing implemented */

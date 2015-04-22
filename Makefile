@@ -14,11 +14,11 @@ LDLIBS = -lpcap -lpthread -lm
 APP = dpdk-replay
 
 # all source are stored in SRCS-y
-SRCS-y := src/main_replay_copy.c 
+SRCS-y := src/main_replay_copy_2_cores.c 
 
 CFLAGS += -O3
 #CFLAGS += -g
-CFLAGS += $(WERROR_FLAGS)
+#CFLAGS += $(WERROR_FLAGS)
 
 include $(RTE_SDK)/mk/rte.extapp.mk
 
