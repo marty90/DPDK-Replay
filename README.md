@@ -128,5 +128,5 @@ Here some example of command lines:
 
 The system approximately each one seconds prints statistics about its performances.
 ```
-Rate:    9.999Gbps     1.405Mpps [Average rate:   10.000Gbps     1.436Mpps]
+Rate:   10.000Gbps     1.319Mpps [Average rate:    10.000Gbps     1.319Mpps], Buffer:   89.998% Packets read speed:    0.333us
 ```
