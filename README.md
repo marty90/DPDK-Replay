@@ -96,7 +96,7 @@ The are few parameters:
 	./build/dpdk-dump -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size] [-C max_pkt] [-t times] [-T timeout]
 ```
 The parameters have this meaning:
-* `COREMASK`: The core where to bind the program. **It needs 1 core**
+* `COREMASK`: The core where to bind the program. **It needs 2 cores**
 * `NUM`: Number of memory channels to use. It's 2 or 4.
 * `PCI_ADDR`: The port(s) where to send. If not present, it sends the same traffic to every port.
 * `file`: input file in pcap format
@@ -113,17 +113,17 @@ Here some example of command lines:
 
 * It starts replaying `capture.pcap` on all DPDK interfaces at wire speed.
 ```bash
-	sudo ./build/dpdk-replay -c 0X01 -n 4 -- -f /mnt/traces/capture.pcap
+	sudo ./build/dpdk-replay -c 0X02 -n 4 -- -f /mnt/traces/capture.pcap
 ```
 
 * It starts replaying `capture.pcap` on the two specified interfaces at 8 Gbps on each link.
 ```bash
-	sudo ./build/dpdk-replay -c 0X01 -n 4 -w 2:00.0 -w 2:00.1 -- -f /mnt/traces/capture.pcap -r 8
+	sudo ./build/dpdk-replay -c 0X02 -n 4 -w 2:00.0 -w 2:00.1 -- -f /mnt/traces/capture.pcap -r 8
 ```
 
-* It starts replaying `capture.pcap` on the two specified interfaces at wire speed. On the second interface, 1 is added to source and destination IP address.
+* It starts replaying `capture.pcap` on the two specified interfaces at wire speed. On the first interface, 1 is added to source and destination IP address, on the second one 2 is added.
 ```bash
-	sudo ./build/dpdk-replay -c 0X01 -n 4 -w 2:00.0 -w 2:00.1 -- -f /mnt/traces/capture.pcap -s 1
+	sudo ./build/dpdk-replay -c 0X02 -n 4 -w 2:00.0 -w 2:00.1 -- -f /mnt/traces/capture.pcap -s 1
 ```
 
 The system approximately each one seconds prints statistics about its performances.
