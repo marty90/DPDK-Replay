@@ -186,10 +186,6 @@ static int main_loop_consumer(__attribute__((unused)) void * arg){
 	/* Infinite loop */
 	for (;;) {
 
-		/* If the system is quitting, break the cycle */
-		if (do_shutdown)
-			break;
-
 		/* Dequeue packet */
 		ret = rte_ring_dequeue(intermediate_ring, (void**)&m);
 		
