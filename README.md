@@ -64,7 +64,7 @@ To achieve the best performances, your CPU must run always at the highest speed.
 ```
 ### 4.3  Bind the interfaces you want to use with DPDK drivers
 It means that you have to load DPDK driver and associate it to you network interface.
-Tstat-DPDK reads packets from all the interfaces bound to DPDK.
+DPDK-Replay sends traffic to all the interfaces bound to DPDK by default.
 Remember to set `RTE_SDK` and `RTE_TARGET` when executing the below commands.
 ```bash
 	sudo modprobe uio
