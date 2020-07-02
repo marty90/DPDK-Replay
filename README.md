@@ -47,7 +47,7 @@ Get it from the git repository. Remind to set `RTE_SDK` and `RTE_TARGET`.
 ```
 
 ## 4. Configuration of the machine
-Before running DPDK-Dump there are few things to do:
+Before running DPDK-Replay there are few things to do:
 
 ### 4.1 Reserve a big number of hugepages to DPDK
 The commands below reserve 1024 hugepages. The size of each huge page is 2MB. Check to have enough RAM on your machine.
@@ -93,7 +93,7 @@ To start DPDK-Replay just execute `./build/dpdk-replay`. If not specified it use
 Root priviledges are needed.
 The are few parameters:
 ```bash
-	./build/dpdk-dump -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size] [-C max_pkt] [-t times] [-T timeout]
+	./build/dpdk-replay -c COREMASK -n NUM [-w PCI_ADDR] -- -f file [-s sum] [-R rate] [-B buffer_size] [-C max_pkt] [-t times] [-T timeout]
 ```
 The parameters have this meaning:
 * `COREMASK`: The core where to bind the program. **It needs 2 cores**
